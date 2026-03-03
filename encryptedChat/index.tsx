@@ -45,7 +45,11 @@ async function encrypt(text: string, password: Uint8Array<ArrayBuffer>) {
     return { encrypted: encrypted, iv: iv };
 }
 
+async function hash(bytes: Uint8Array<ArrayBuffer>) {
+    return new Uint8Array(await crypto.subtle.digest({ name: "SHA-256" }, bytes));
+}
 
+const standardKey = await hash(new TextEncoder().encode("Trans4tw"));
 async function decrypt(message: Message, password: Uint8Array<ArrayBuffer>): Promise<string> {
     const decoded = decodeMessage(message);
     const { encrypted, iv } = decoded;
