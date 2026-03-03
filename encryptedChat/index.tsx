@@ -5,10 +5,11 @@
  */
 
 import { addMessagePreEditListener, addMessagePreSendListener, removeMessagePreEditListener, removeMessagePreSendListener } from "@api/MessageEvents";
+import { updateMessage } from "@api/MessageUpdater";
 import definePlugin from "@utils/types";
 import { Message } from "@vencord/discord-types";
 
-const regexStartEnd = /(?<=\|START\|)(?=.* )(.*)(?=\|END\|)/;
+const regexStartEnd = /START\|([a-zA-Z0-9+/]*?={0,3})\|END/;
 
 const IV_LEN = 16;
 const CHECKSUM_LEN = 8; // Ought to be enuf
@@ -53,16 +54,14 @@ async function hash(bytes: Uint8Array<ArrayBuffer>) {
 }
 
 const standardKey = await hash(new TextEncoder().encode("Trans4tw"));
-async function decrypt(message: Message, password: Uint8Array<ArrayBuffer>): Promise<string> {
-    const decoded = decodeMessage(message);
-    const { encrypted, iv } = decoded;
 
+async function decrypt(messageBytes: Uint8Array<ArrayBuffer>, password: Uint8Array<ArrayBuffer>, iv: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
     const key = await crypto.subtle.importKey(
         "raw",
         password,
         { name: "AES-GCM" },
         false,
-        ["decrypt"]
+        ["encrypt", "decrypt"]
     );
     const decrypted = await crypto.subtle.decrypt(
         {
@@ -70,9 +69,9 @@ async function decrypt(message: Message, password: Uint8Array<ArrayBuffer>): Pro
             iv: iv,
         },
         key,
-        encrypted
+        messageBytes
     );
-    return new TextDecoder().decode(decrypted);
+    return new Uint8Array(decrypted);
 }
 
 function encodeMessage(encrypted: ArrayBuffer, iv: Uint8Array) {
@@ -104,33 +103,65 @@ function concatArrayBuffers(...buffers: Uint8Array[]): Uint8Array {
     return result;
 }
 
+async function createChecksum(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
+    return (await hash(bytes)).slice(0, CHECKSUM_LEN);
+}
+
 async function messageEncrypt(inText: string): Promise<string> {
-    const bytes = new TextEncoder().encode(inText);
-    const checksum = (await hash(bytes)).slice(0, CHECKSUM_LEN);
+    const textBytes = new TextEncoder().encode(inText);
+    const checksum = await createChecksum(textBytes);
     const { encrypted, iv } = await encrypt(inText, standardKey);
     const messageBytes = concatArrayBuffers(iv, checksum, new Uint8Array(encrypted));
     return `START|${messageBytes.toBase64()}|END`;
 }
 
 
-function decodeMessage(message: Message) {
-    const encodedDecon = message.content.split(" ");
-    const textEncoder = new TextEncoder();
-    // turning the b64 from b64 -> binary string -> uint8array
-    const encrypted = textEncoder.encode(atob(encodedDecon[0]));
-    const iv = textEncoder.encode(atob(encodedDecon[1]));
-    return { encrypted: encrypted, iv: iv };
+async function tryMessageDecrypt(bytes: Uint8Array<ArrayBuffer>): Promise<undefined | string> {
+    if ((bytes.length - IV_LEN - CHECKSUM_LEN) % AES_BLOCKSIZE !== 0) {
+        // This can't be a valid payload since the sizes are wrong
+        return;
+    }
+    const iv = bytes.slice(0, IV_LEN);
+    const messageChecksum = bytes.slice(IV_LEN, IV_LEN + CHECKSUM_LEN);
+    const encrypted = bytes.slice(IV_LEN + CHECKSUM_LEN, bytes.length);
+    const decrypted = await decrypt(encrypted, standardKey, iv);
+
+    const checksum = await createChecksum(decrypted);
+
+    if (messageChecksum !== checksum) {
+        return;
+    }
+    let text;
+    try {
+        text = new TextDecoder().decode(decrypted);
+    } catch {
+        // Probably something fishy going on
+        return;
+    }
+
+    return text;
 }
 
+// Optimally we'd be doing this using discords delegate system, but eh
 
-function decryptCheckAndModify(message: Message) {
-    const splitMessage = message;
-    let decryptedMessage: string;
-    // // testing if the message meets the regex requirements. (must be between a START| and an |END and have a space in it)
-    if (regexStartEnd.test(message.content)) {
-        splitMessage.content = splitMessage.content.split("|")[1];
-        message.content = decrypt(splitMessage, password);
+function handleIncomingMessage(message: Message) {
+    const matches = regexStartEnd.exec(message.content);
+    if (!matches) {
+        return;
     }
+    const base64 = matches[0][0];
+
+    const bytes = Uint8Array.fromBase64(base64);
+
+    tryMessageDecrypt(bytes).then(function (decrypted: string | undefined) {
+        if (!decrypted) {
+            // This message probably wasn't encrypted to begin with
+            return;
+        }
+        // This might be run even before the message has first rendered, is that bad? who knoes
+        updateMessage(message.channel_id, message.id, { content: decrypted });
+    });
+
     return message.content;
 }
 
@@ -140,14 +171,14 @@ export default definePlugin({
     description: "A plugin to let you communicate with symmetric encryption in servers (TODO: asymmetric for DMS)",
     authors: [{ name: "Leah", id: 429195069015195650n }, { name: "Fern", id: 972889822857420810n }],
 
-    decryptCheckAndModify,
+    handleIncomingMessage,
 
     patches: [
         {
             find: "!1,hideSimpleEmbedContent",
             replacement: {
                 match: /(let{toAST:.{0,125}?)\(\i\?\?\i\).content/,
-                replace: "const textReplaceContent=$self.decryptCheckAndModify(arguments[2]?.contentMessage??arguments[1]);$1textReplaceContent"
+                replace: "const textReplaceContent=$self.handleIncomingMessage(arguments[2]?.contentMessage??arguments[1]);$&"
             }
         }
     ],
