@@ -10,6 +10,9 @@ import { Message } from "@vencord/discord-types";
 
 const regexStartEnd = /(?<=\|START\|)(?=.* )(.*)(?=\|END\|)/;
 
+const IV_LEN = 16;
+const CHECKSUM_LEN = 8; // Ought to be enuf
+
 const password = crypto.getRandomValues(new Uint8Array(32));
 let binary = "";
 password.forEach(element => binary += String.fromCharCode(element));
@@ -31,7 +34,7 @@ async function encrypt(text: string, password: Uint8Array<ArrayBuffer>) {
         false,
         ["encrypt"]
     );
-    const iv = await crypto.getRandomValues(new Uint8Array(16));
+    const iv = await crypto.getRandomValues(new Uint8Array(IV_LEN));
 
     const encrypted = await crypto.subtle.encrypt(
         {
@@ -88,6 +91,26 @@ function encodeMessage(encrypted: ArrayBuffer, iv: Uint8Array) {
     return `START|${btoa(ivEncoded)} ${btoa(encEncoded)}|END`;
 }
 
+function concatArrayBuffers(...buffers: Uint8Array[]): Uint8Array {
+    const totalLength = buffers.reduce((sum, buf) => sum + buf.byteLength, 0);
+    const result = new Uint8Array(totalLength);
+
+    let offset = 0;
+    for (const buffer of buffers) {
+        result.set(buffer, offset);
+        offset += buffer.byteLength;
+    }
+
+    return result;
+}
+
+async function messageEncrypt(inText: string): Promise<string> {
+    const bytes = new TextEncoder().encode(inText);
+    const checksum = (await hash(bytes)).slice(0, CHECKSUM_LEN);
+    const { encrypted, iv } = await encrypt(inText, standardKey);
+    const messageBytes = concatArrayBuffers(iv, checksum, new Uint8Array(encrypted));
+    return `START|${messageBytes.toBase64()}|END`;
+}
 
 
 function decodeMessage(message: Message) {
@@ -131,17 +154,13 @@ export default definePlugin({
 
     start() {
         this.onSent = addMessagePreSendListener(async (channelId, messageObj, extra) => {
-            await encrypt(messageObj.content, password).then(encrypted => {
-                messageObj.content = encodeMessage(encrypted.encrypted, encrypted.iv);
-                return { cancel: false };
-            });
+            messageObj.content = await messageEncrypt(messageObj.content);
+            return { cancel: false };
         });
 
         this.onEdit = addMessagePreEditListener(async (channelId, messageId, messageObj) => {
-            await encrypt(messageObj.content, password).then(encrypted => {
-                messageObj.content = encodeMessage(encrypted.encrypted, encrypted.iv);
-                return { cancel: false };
-            });
+            messageObj.content = await messageEncrypt(messageObj.content);
+            return { cancel: false };
         });
     },
     stop() {
