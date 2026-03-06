@@ -26,7 +26,9 @@ export const EncryptIcon: IconComponent = ({ height = 30, width = 20, className 
     );
 };
 
-export const encryptChatBarIcon: ChatBarButtonFactory = () => {
+export const encryptChatBarIcon: ChatBarButtonFactory = ({ isMainChat }) => {
+    if (!isMainChat) return null;
+
     const { enableEncryption } = settings.use(["enableEncryption"]);
 
     const toggle = () => {
