@@ -1,3 +1,17 @@
 .enc-activated {
     color: var(--green-360);
 }
+
+.enc-modal-header {
+    place-content: center space-between;
+}
+
+.enc-modal-title {
+    margin: 0;
+}
+
+.enc-dont-show-again {
+    size: small;
+    text-align: center;
+    margin-top: 1em;
+}

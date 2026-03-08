@@ -12,5 +12,10 @@ export const settings = definePluginSettings({
         type: OptionType.BOOLEAN,
         description: "Enable encryption of your messages.",
         default: true
+    },
+    showToggleAlerts: {
+        type: OptionType.BOOLEAN,
+        description: "Show an alert when you shift-click on the chat icon to quickly enable/disable message encryption",
+        default: true,
     }
 });

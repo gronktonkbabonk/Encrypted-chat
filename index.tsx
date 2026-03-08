@@ -12,7 +12,7 @@ import { Logger } from "@utils/Logger";
 import definePlugin from "@utils/types";
 import { Message } from "@vencord/discord-types";
 
-import { encryptChatBarIcon, EncryptIcon } from "./encryptIcon";
+import { EncryptChatBarIcon, EncryptIcon } from "./encryptIcon";
 import { settings } from "./settings";
 
 const regexStartEnd = /START\|([a-zA-Z0-9+/]*?={0,3})\|END/g;
@@ -262,7 +262,7 @@ export default definePlugin({
 
     chatBarButton: {
         icon: EncryptIcon,
-        render: encryptChatBarIcon
+        render: EncryptChatBarIcon
     },
 
     handleIncomingMessage,
