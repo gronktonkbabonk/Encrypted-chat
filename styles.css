@@ -4,14 +4,22 @@
 
 .enc-modal-header {
     place-content: center space-between;
+
+}
+
+.vc-trans-modal-content {
+    padding: 1em;
+}
+
+.enc-modal-root {
+    padding-bottom: 1em;
 }
 
 .enc-modal-title {
     margin: 0;
 }
 
-.enc-dont-show-again {
-    size: small;
-    text-align: center;
+.enc-modal-button {
     margin-top: 1em;
+
 }

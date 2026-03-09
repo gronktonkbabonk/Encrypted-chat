@@ -5,19 +5,23 @@
  */
 
 import { ChatBarButton, ChatBarButtonFactory } from "@api/ChatButtons";
+import { Button } from "@components/Button";
 import { Divider } from "@components/Divider";
 import { FormSwitch } from "@components/FormSwitch";
 import { Heading } from "@components/Heading";
 import { Margins } from "@components/margins";
 import { Paragraph } from "@components/Paragraph";
 import { classNameFactory } from "@utils/css";
+import { getCurrentChannel } from "@utils/discord";
 import { ModalCloseButton, ModalContent, ModalHeader, ModalProps, ModalRoot, openModal } from "@utils/modal";
 import { IconComponent } from "@utils/types";
 import { Alerts } from "@webpack/common";
+import { MouseEvent } from "react";
 
+import { encryptedStore } from "./encryptedStore";
 import { settings } from "./settings";
 
-const cl = classNameFactory("enc-");
+export const cl = classNameFactory("enc-");
 
 export const EncryptIcon: IconComponent = ({ height = 30, width = 20, className }) => {
     return (
@@ -46,7 +50,13 @@ function EncryptMessagesToggle() {
     );
 }
 
+
+function startKeyExchange(e: MouseEvent) {
+
+}
+
 export function EncryptModal({ rootProps }: { rootProps: ModalProps; }) {
+    const KeyExchangePossible = getCurrentChannel()?.isDM();
     return (
         <ModalRoot {...rootProps}>
             <ModalHeader className={cl("modal-header")}>
@@ -59,6 +69,10 @@ export function EncryptModal({ rootProps }: { rootProps: ModalProps; }) {
             <ModalContent className={cl("modal-content")}>
                 <Divider className={Margins.bottom16} />
                 <EncryptMessagesToggle />
+                <Divider className={Margins.bottom16} />
+                <Button className={cl("modal-button")} disabled={!KeyExchangePossible} onClick={startKeyExchange}>
+                    Start Key Exchange
+                </Button>
             </ModalContent>
 
         </ModalRoot>
@@ -108,6 +122,11 @@ export const EncryptChatBarIcon: ChatBarButtonFactory = ({ isMainChat }) => {
         <ChatBarButton
             tooltip="Toggle encryption"
             onClick={e => {
+                if (!encryptedStore.isInit()) {
+                    encryptedStore.user_prompt_store();
+                    return;
+                }
+
                 if (e.shiftKey) {
                     toggle();
                     return;
