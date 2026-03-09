@@ -14,11 +14,11 @@ import { Message } from "@vencord/discord-types";
 
 import { EncryptChatBarIcon, EncryptIcon } from "./encryptIcon";
 import { settings } from "./settings";
+import { concatArrayBuffers, decrypt, encrypt, fromBase64, hash, IV_LEN, toBase64, uint8ArraysEqual } from "./utils";
 
 const regexStartEnd = /START\|([a-zA-Z0-9+/]*?={0,3})\|END/g;
 const regexPing = /<(@[0-9].{17})>/;
 
-const IV_LEN = 16;
 const MESSGE_TYPE_LEN = 1;
 const CHECKSUM_LEN = 8; // Ought to be enuf
 
@@ -46,32 +46,9 @@ enum MessageType {
 
 const LOGGER = new Logger("EncryptedChat", "#ff9900");
 
-async function encrypt(text: string, password: Uint8Array<ArrayBuffer>) {
-    const messageBytes = new TextEncoder().encode(text);
-    const key = await crypto.subtle.importKey(
-        "raw",
-        password,
-        { name: "AES-GCM" },
-        false,
-        ["encrypt"]
-    );
-    const iv = await crypto.getRandomValues(new Uint8Array(IV_LEN));
 
-    const encrypted = await crypto.subtle.encrypt(
-        {
-            name: "AES-GCM",
-            iv: iv,
-        },
-        key,
-        messageBytes
-    );
 
-    return { encrypted: encrypted, iv: iv };
-}
 
-async function hash(bytes: Uint8Array<ArrayBuffer>) {
-    return new Uint8Array(await crypto.subtle.digest({ name: "SHA-256" }, bytes));
-}
 
 const standardKey = "Trans4tw";
 
@@ -80,37 +57,7 @@ async function getStandardKey(channel_id: string) {
     return await hash(new TextEncoder().encode(standardKey));
 }
 
-async function decrypt(messageBytes: Uint8Array<ArrayBuffer>, password: Uint8Array<ArrayBuffer>, iv: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
-    const key = await crypto.subtle.importKey(
-        "raw",
-        password,
-        { name: "AES-GCM" },
-        false,
-        ["encrypt", "decrypt"]
-    );
-    const decrypted = await crypto.subtle.decrypt(
-        {
-            name: "AES-GCM",
-            iv: iv,
-        },
-        key,
-        messageBytes
-    );
-    return new Uint8Array(decrypted);
-}
 
-function concatArrayBuffers(...buffers: Uint8Array[]): Uint8Array {
-    const totalLength = buffers.reduce((sum, buf) => sum + buf.byteLength, 0);
-    const result = new Uint8Array(totalLength);
-
-    let offset = 0;
-    for (const buffer of buffers) {
-        result.set(buffer, offset);
-        offset += buffer.byteLength;
-    }
-
-    return result;
-}
 
 async function createChecksum(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
     return (await hash(bytes)).slice(0, CHECKSUM_LEN);
@@ -127,16 +74,7 @@ async function messageEncrypt(inText: string, channel_id: string): Promise<strin
     return `START|${toBase64(messageBytes)}|END`;
 }
 
-function uint8ArraysEqual(a, b) {
-    if (a === b) return true; // same reference
-    if (a.length !== b.length) return false;
 
-    for (let i = 0; i < a.length; i++) {
-        if (a[i] !== b[i]) return false;
-    }
-
-    return true;
-}
 
 
 async function tryMessageHandle(bytes: Uint8Array<ArrayBuffer>, channel_id: string): Promise<undefined | string> {
@@ -207,16 +145,6 @@ async function tryMessageDecrypt(bytes: Uint8Array<ArrayBuffer>, channel_id: str
 
 // Optimally we'd be doing this using discords delegate system, but eh
 
-function toBase64(bytes: Uint8Array) {
-    let binary = "";
-    for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-
-    return btoa(binary);
-}
-
-
 function handleIncomingMessage(message: Message) {
     while (true) {
         const matches = regexStartEnd.exec(message.content);
@@ -230,14 +158,8 @@ function handleIncomingMessage(message: Message) {
         const { length } = matches[0];
         LOGGER.info(`Matches: '${matches}', ${index}, ${length}`);
         // LOGGER.info(`Extracted base64 part: '${base64}'`);
-        let bytes;
-        try {
-            const binaryString = atob(base64);
-            bytes = Uint8Array.from(binaryString, c => c.charCodeAt(0));
-        } catch {
-            // LOGGER.error("Extracted part wasn't valid base 64 (which should be impossible)");
-            break;
-        }
+        const bytes = fromBase64(base64);
+        if (!bytes) break;
 
         tryMessageHandle(bytes, message.channel_id).then(function (decrypted: string | undefined) {
             if (!decrypted) {
