@@ -14,6 +14,7 @@ import { Message } from "@vencord/discord-types";
 
 import { encryptChatBarIcon, EncryptIcon } from "./encryptIcon";
 import { settings } from "./settings";
+import { getChannelKey, hash, stringToUint8, uint8ToString } from "./utils";
 
 const regexStartEnd = /START\|([a-zA-Z0-9+/]*?={0,3})\|END/;
 const regexPing = /<(@[0-9].{17})>/;
@@ -21,10 +22,6 @@ const regexPing = /<(@[0-9].{17})>/;
 const IV_LEN = 16;
 const CHECKSUM_LEN = 8; // Ought to be enuf
 const AES_BLOCKSIZE = 16;
-const password = crypto.getRandomValues(new Uint8Array(32));
-let binary = "";
-password.forEach(element => binary += String.fromCharCode(element));
-console.log("Your password is: " + btoa(binary));
 
 /*
  * |=============================================================================================|
@@ -35,16 +32,17 @@ console.log("Your password is: " + btoa(binary));
 
 const LOGGER = new Logger("EncryptedChat", "#ff9900");
 
-async function encrypt(text: string, password: Uint8Array<ArrayBuffer>) {
-    const messageBytes = new TextEncoder().encode(text);
-    const key = await crypto.subtle.importKey(
-        "raw",
-        password,
-        { name: "AES-GCM" },
-        false,
-        ["encrypt"]
-    );
-    const iv = await crypto.getRandomValues(new Uint8Array(IV_LEN));
+// async function encrypt(text: string, password: Uint8Array<ArrayBuffer>) {
+async function encrypt(text: string, key: CryptoKey) {
+    const messageBytes = stringToUint8(text);
+    // const key = await crypto.subtle.importKey(
+    //     "raw",
+    //     password,
+    //     { name: "AES-GCM" },
+    //     false,
+    //     ["encrypt"]
+    // );
+    const iv = crypto.getRandomValues(new Uint8Array(IV_LEN));
 
     const encrypted = await crypto.subtle.encrypt(
         {
@@ -58,25 +56,14 @@ async function encrypt(text: string, password: Uint8Array<ArrayBuffer>) {
     return { encrypted: encrypted, iv: iv };
 }
 
-async function hash(bytes: Uint8Array<ArrayBuffer>) {
-    return new Uint8Array(await crypto.subtle.digest({ name: "SHA-256" }, bytes));
-}
-
-const standardKey = "Trans4tw";
-
-async function getStandardKey(channel_id: string) {
-    // Channel id to be used later
-    return await hash(new TextEncoder().encode(standardKey));
-}
-
-async function decrypt(messageBytes: Uint8Array<ArrayBuffer>, password: Uint8Array<ArrayBuffer>, iv: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
-    const key = await crypto.subtle.importKey(
-        "raw",
-        password,
-        { name: "AES-GCM" },
-        false,
-        ["encrypt", "decrypt"]
-    );
+async function decrypt(messageBytes: Uint8Array<ArrayBuffer>, key: CryptoKey, iv: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
+    // const key = await crypto.subtle.importKey(
+    //     "raw",
+    //     password,
+    //     { name: "AES-GCM" },
+    //     false,
+    //     ["encrypt", "decrypt"]
+    // );
     const decrypted = await crypto.subtle.decrypt(
         {
             name: "AES-GCM",
@@ -106,11 +93,11 @@ async function createChecksum(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Arra
 }
 
 async function messageEncrypt(inText: string, channel_id: string): Promise<string> {
-    const textBytes = new TextEncoder().encode(inText);
+    const textBytes = stringToUint8(inText);
     const checksum = await createChecksum(textBytes);
     // LOGGER.log(`Plain bytes: ${textBytes}`);
     // LOGGER.log(`Encrypt checksum: ${checksum}`);
-    const { encrypted, iv } = await encrypt(inText, await getStandardKey(channel_id));
+    const { encrypted, iv } = await encrypt(inText, await getChannelKey(channel_id));
     const messageBytes = concatArrayBuffers(iv, checksum, new Uint8Array(encrypted));
     return `START|${toBase64(messageBytes)}|END`;
 }
@@ -140,7 +127,7 @@ async function tryMessageDecrypt(bytes: Uint8Array<ArrayBuffer>, channel_id: str
     const encrypted = bytes.slice(IV_LEN + CHECKSUM_LEN, bytes.byteLength);
     // LOGGER.log("Encrypted Bytes: ", encrypted);
 
-    const decrypted = await decrypt(encrypted, await getStandardKey(channel_id), iv);
+    const decrypted = await decrypt(encrypted, await getChannelKey(channel_id), iv);
     // LOGGER.log("Decrypted ", decrypted);
 
     const checksum = await createChecksum(decrypted);
@@ -151,14 +138,13 @@ async function tryMessageDecrypt(bytes: Uint8Array<ArrayBuffer>, channel_id: str
     }
     let text;
     try {
-        text = new TextDecoder().decode(decrypted);
+        text = uint8ToString(decrypted);
     } catch {
         LOGGER.warn("Decrypted checksums match, yet encoding threw an exception. This is probably a malicious text injection or smt smt.");
 
         // Probably something fishy going on
         return;
     }
-
     return text;
 }
 

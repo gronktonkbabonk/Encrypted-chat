@@ -5,13 +5,14 @@
  */
 
 import { ChatBarButton, ChatBarButtonFactory } from "@api/ChatButtons";
-import { classNameFactory } from "@utils/css";
+import { openModal } from "@utils/modal";
 import { IconComponent } from "@utils/types";
 import { Alerts, Forms } from "@webpack/common";
 
+import { KeySetModal } from "./setKey";
 import { settings } from "./settings";
+import { cl } from "./utils";
 
-const cl = classNameFactory("enc-");
 
 export const EncryptIcon: IconComponent = ({ height = 30, width = 20, className }) => {
     return (
@@ -61,8 +62,11 @@ export const encryptChatBarIcon: ChatBarButtonFactory = ({ isMainChat }) => {
     const button = (
         <ChatBarButton
             tooltip="Toggle encryption"
-            onClick={() => {
-                return toggle();
+            onClick={e => {
+                if (e.shiftKey) return toggle();
+                openModal(props => (
+                    <KeySetModal rootProps={props} />
+                ));
             }}
         >
             <EncryptIcon className={cl({ "activated": enableEncryption })} />

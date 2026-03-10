@@ -12,5 +12,16 @@ export const settings = definePluginSettings({
         type: OptionType.BOOLEAN,
         description: "Enable encryption of your messages.",
         default: true
+    },
+    storedKeys: {
+        type: OptionType.CUSTOM,
+        hidden: true,
+        default: {}
+    },
+    masterPassSet: { // for later
+        type: OptionType.BOOLEAN,
+        description: "",
+        default: false,
+        hidden: true
     }
 });
