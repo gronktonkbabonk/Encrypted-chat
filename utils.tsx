@@ -18,17 +18,28 @@ export function uint8ToString(text: Uint8Array) {
     return decodedText;
 }
 
+export function uint8ToBase64(bytes: Uint8Array) {
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+
+    return btoa(binary);
+}
+
+export function base64ToUint8(base64: string) {
+    return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+}
+
 export async function hash(bytes: Uint8Array<ArrayBuffer>) {
     return new Uint8Array(await crypto.subtle.digest({ name: "SHA-256" }, bytes));
 }
 
-
-// HERE IS THE PROBLEM
 export async function getChannelKey(channel_id: string) {
     const proxyKey = settings.store.storedKeys[channel_id];
     console.log(proxyKey);
-    const uint8 = new Uint8Array(proxyKey.slice(0));
-    const channelKey = uint8;
+    const channelKey = base64ToUint8(proxyKey);
+    console.log(channelKey);
     const key = await crypto.subtle.importKey(
         "raw",
         channelKey,

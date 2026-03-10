@@ -14,7 +14,7 @@ import { Message } from "@vencord/discord-types";
 
 import { encryptChatBarIcon, EncryptIcon } from "./encryptIcon";
 import { settings } from "./settings";
-import { getChannelKey, hash, stringToUint8, uint8ToString } from "./utils";
+import { base64ToUint8, getChannelKey, hash, stringToUint8, uint8ToBase64, uint8ToString } from "./utils";
 
 const regexStartEnd = /START\|([a-zA-Z0-9+/]*?={0,3})\|END/;
 const regexPing = /<(@[0-9].{17})>/;
@@ -99,7 +99,7 @@ async function messageEncrypt(inText: string, channel_id: string): Promise<strin
     // LOGGER.log(`Encrypt checksum: ${checksum}`);
     const { encrypted, iv } = await encrypt(inText, await getChannelKey(channel_id));
     const messageBytes = concatArrayBuffers(iv, checksum, new Uint8Array(encrypted));
-    return `START|${toBase64(messageBytes)}|END`;
+    return `START|${uint8ToBase64(messageBytes)}|END`;
 }
 
 function uint8ArraysEqual(a, b) {
@@ -148,17 +148,6 @@ async function tryMessageDecrypt(bytes: Uint8Array<ArrayBuffer>, channel_id: str
     return text;
 }
 
-// Optimally we'd be doing this using discords delegate system, but eh
-
-function toBase64(bytes: Uint8Array) {
-    let binary = "";
-    for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-
-    return btoa(binary);
-}
-
 
 function handleIncomingMessage(message: Message) {
     const matches = regexStartEnd.exec(message.content);
@@ -170,8 +159,7 @@ function handleIncomingMessage(message: Message) {
     // LOGGER.info(`Extracted base64 part: '${base64}'`);
     let bytes;
     try {
-        const binaryString = atob(base64);
-        bytes = Uint8Array.from(binaryString, c => c.charCodeAt(0));
+        bytes = base64ToUint8(base64);
     } catch {
         // LOGGER.error("Extracted part wasn't valid base 64 (which should be impossible)");
         return;

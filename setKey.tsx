@@ -14,7 +14,7 @@ import { Alerts, Forms, TextInput, useState } from "@webpack/common";
 
 import { deriveKey } from "./deriveKey";
 import { settings } from "./settings";
-import { cl, hash, stringToUint8 } from "./utils";
+import { cl, hash, stringToUint8, uint8ToBase64 } from "./utils";
 
 export function KeySetModal({ rootProps }: { rootProps: ModalProps; }) {
     return (
@@ -49,7 +49,10 @@ function SetChannelKey({ rootProps }: { rootProps: ModalProps; }) {
     const setKey = async () => {
         const channelIdHash = await getChannelIdHash(channel_id);
         const derivedKey = await deriveKey(input, channelIdHash);
-        keys[channel_id] = await crypto.subtle.exportKey("raw", derivedKey.derived);
+        const exportedKey = new Uint8Array(await crypto.subtle.exportKey("raw", derivedKey.derived));
+        keys[channel_id] = uint8ToBase64(exportedKey);
+        console.log(exportedKey);
+        console.log(uint8ToBase64(exportedKey));
         Alerts.show({
             title: `De-encryption key set for channel ${getCurrentChannel()?.name}`,
             body: <></>,
