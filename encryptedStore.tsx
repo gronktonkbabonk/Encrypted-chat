@@ -12,8 +12,7 @@ import { Paragraph } from "@components/Paragraph";
 import { ModalCloseButton, ModalContent, ModalHeader, ModalProps, ModalRoot, openModal } from "@utils/modal";
 import { Alerts, TextInput } from "@webpack/common";
 
-import { cl } from "./encryptIcon";
-import { decrypt_key, deriveKey, encrypt_key, fromBase64, hash, IV_LEN, toBase64, uint8ArraysEqual } from "./utils";
+import { decrypt_key, deriveKey, encrypt_key, base64ToUint8, hash, IV_LEN, uint8ToBase64, uint8ArraysEqual, cl } from "./utils";
 
 
 const KEY_PREFIX = "enc";
@@ -40,17 +39,17 @@ export class EncryptedStore {
         const salt_string = this.innerStore[salt_key];
         let known_salt;
         if (salt_string) {
-            known_salt = fromBase64(salt_string);
+            known_salt = base64ToUint8(salt_string);
         }
 
         const { key, salt } = await deriveKey(master_password, known_salt);
-        this.innerStore[salt_key] = toBase64(salt);
+        this.innerStore[salt_key] = uint8ToBase64(salt);
 
         const plain_key = new Uint8Array(await crypto.subtle.exportKey("raw", key));
         const computed_password_hash = await hash(plain_key);
         const ref_password_hash_string = this.innerStore[key_hash_key];
         if (ref_password_hash_string) {
-            const ref_password_hash = fromBase64(ref_password_hash_string);
+            const ref_password_hash = base64ToUint8(ref_password_hash_string);
             if (ref_password_hash) {
                 if (!uint8ArraysEqual(ref_password_hash, computed_password_hash)) {
                     return false;
@@ -58,7 +57,7 @@ export class EncryptedStore {
             }
         }
 
-        this.innerStore[key_hash_key] = toBase64(computed_password_hash);
+        this.innerStore[key_hash_key] = uint8ToBase64(computed_password_hash);
         this.crypt_key = key;
         this.keyPrefix = keyPrefix;
         this.is_init = true;
@@ -70,7 +69,7 @@ export class EncryptedStore {
         if (!key_iv_string) {
             return;
         }
-        const key_iv = fromBase64(key_iv_string);
+        const key_iv = base64ToUint8(key_iv_string);
         if (!key_iv || key_iv.length !== IV_LEN) {
             return;
         }
@@ -79,7 +78,7 @@ export class EncryptedStore {
         if (!val_string) {
             return;
         }
-        const val = fromBase64(val_string);
+        const val = base64ToUint8(val_string);
         if (!val) {
             return;
         }
@@ -90,8 +89,8 @@ export class EncryptedStore {
     public async set_key(key: string, val: Uint8Array<ArrayBuffer>) {
         const { iv, encrypted } = await encrypt_key(val, this.crypt_key);
 
-        this.innerStore[`${this.keyPrefix}-${key}-val`] = toBase64(new Uint8Array(encrypted));
-        this.innerStore[`${this.keyPrefix}-${key}-iv`] = toBase64(iv);
+        this.innerStore[`${this.keyPrefix}-${key}-val`] = uint8ToBase64(new Uint8Array(encrypted));
+        this.innerStore[`${this.keyPrefix}-${key}-iv`] = uint8ToBase64(iv);
     }
     public user_prompt_store(): boolean {
         if (this.isInit()) {

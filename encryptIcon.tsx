@@ -12,14 +12,15 @@ import { Heading } from "@components/Heading";
 import { Margins } from "@components/margins";
 import { Paragraph } from "@components/Paragraph";
 import { getCurrentChannel } from "@utils/discord";
-import { ModalCloseButton, ModalContent, ModalHeader, ModalProps, ModalRoot } from "@utils/modal";
+import { ModalCloseButton, ModalContent, ModalHeader, ModalProps, ModalRoot, openModal } from "@utils/modal";
 import { IconComponent } from "@utils/types";
 import { Alerts } from "@webpack/common";
-import { MouseEvent } from "react";
+// import { MouseEvent } from "react";
 
 import { encryptedStore } from "./encryptedStore";
 import { settings } from "./settings";
 import { cl } from "./utils";
+import { KeySetModal } from "./setKey";
 
 export const EncryptIcon: IconComponent = ({ height = 30, width = 20, className }) => {
     return (
@@ -53,7 +54,8 @@ function startKeyExchange(e: MouseEvent) {
 
 }
 
-export function EncryptModal({ rootProps }: { rootProps: ModalProps; }) {
+
+export function EncryptIconModal({ rootProps }: { rootProps: ModalProps; }) {
     const KeyExchangePossible = getCurrentChannel()?.isDM();
     return (
         <ModalRoot {...rootProps}>
@@ -67,6 +69,10 @@ export function EncryptModal({ rootProps }: { rootProps: ModalProps; }) {
             <ModalContent className={cl("modal-content")}>
                 <Divider className={Margins.bottom16} />
                 <EncryptMessagesToggle />
+                <Divider className={Margins.bottom16} />
+                <Button className={cl("modal-button")} /*disabled={KeyExchangePossible}*/ onClick={openModal(props => (<KeySetModal rootProps={props} />))}>
+                    Set Channel Key
+                </Button>
                 <Divider className={Margins.bottom16} />
                 <Button className={cl("modal-button")} disabled={!KeyExchangePossible} onClick={startKeyExchange}>
                     Start Key Exchange
@@ -125,12 +131,9 @@ export const EncryptChatBarIcon: ChatBarButtonFactory = ({ isMainChat }) => {
                     encryptedStore.user_prompt_store();
                     return;
                 }
-                // openModal(props => (
-                //     <KeySetModal rootProps={props} />
-                // ));
-                // openModal(props => (
-                //     <EncryptModal rootProps={props} />
-                // ));
+                openModal(props => (
+                    <EncryptIconModal rootProps={props} />
+                ));
             }}
         >
             <EncryptIcon className={cl({ "activated": enableEncryption })} />
