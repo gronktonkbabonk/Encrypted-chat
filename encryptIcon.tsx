@@ -15,12 +15,12 @@ import { getCurrentChannel } from "@utils/discord";
 import { ModalCloseButton, ModalContent, ModalHeader, ModalProps, ModalRoot, openModal } from "@utils/modal";
 import { IconComponent } from "@utils/types";
 import { Alerts } from "@webpack/common";
-// import { MouseEvent } from "react";
 
+// import { MouseEvent } from "react";
 import { encryptedStore } from "./encryptedStore";
+import { KeySetModal } from "./setChannelKey";
 import { settings } from "./settings";
 import { cl } from "./utils";
-import { KeySetModal } from "./setChannelKey";
 
 export const EncryptIcon: IconComponent = ({ height = 30, width = 20, className }) => {
     return (
@@ -70,11 +70,11 @@ export function EncryptIconModal({ rootProps }: { rootProps: ModalProps; }) {
                 <Divider className={Margins.bottom16} />
                 <EncryptMessagesToggle />
                 <Divider className={Margins.bottom16} />
-                <Button className={cl("modal-button")} /*disabled={KeyExchangePossible}*/ onClick={openModal(props => (<KeySetModal rootProps={props} />))}>
+                <Button className={cl("modal-button")} /* disabled={KeyExchangePossible}*/ onClick={() => { openModal(props => (<KeySetModal rootProps={props} />)); }}>
                     Set Channel Key
                 </Button>
                 <Divider className={Margins.bottom16} />
-                <Button className={cl("modal-button")} disabled={!KeyExchangePossible} onClick={startKeyExchange}>
+                <Button className={[cl("modal-button"), Margins.bottom16].join(" ")} disabled={!KeyExchangePossible} /* onClick={startKeyExchange}*/>
                     Start Key Exchange
                 </Button>
             </ModalContent>
@@ -115,7 +115,7 @@ export const EncryptChatBarIcon: ChatBarButtonFactory = ({ isMainChat }) => {
 
     const button = (
         <ChatBarButton
-            tooltip="Toggle encryption"
+            tooltip="Open Encryption Menu"
             onClick={e => {
                 if (e.shiftKey) return toggle();
                 if (!encryptedStore.isInit()) {
