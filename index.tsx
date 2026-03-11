@@ -43,24 +43,6 @@ enum MessageType {
 
 const LOGGER = new Logger("EncryptedChat", "#ff9900");
 
-// async function encrypt(text: string, key: CryptoKey) {
-//     const messageBytes = stringToUint8(text);
-//     const iv = crypto.getRandomValues(new Uint8Array(IV_LEN));
-
-
-
-// async function decrypt(messageBytes: Uint8Array<ArrayBuffer>, key: CryptoKey, iv: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
-//     const decrypted = await crypto.subtle.decrypt(
-//         {
-//             name: "AES-GCM",
-//             iv: iv,
-//         },
-//         key,
-//         messageBytes
-//     );
-//     return new Uint8Array(decrypted);
-// }
-
 async function createChecksum(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
     return (await hash(bytes)).slice(0, CHECKSUM_LEN);
 }
@@ -75,9 +57,6 @@ async function messageEncrypt(inText: string, channel_id: string): Promise<strin
     // LOGGER.log(`Message bytes: ${messageBytes.byteLength}, encrypted bytes: ${encrypted.byteLength}`);
     return `START|${uint8ToBase64(messageBytes)}|END`;
 }
-
-
-
 
 async function tryMessageHandle(bytes: Uint8Array<ArrayBuffer>, channel_id: string): Promise<undefined | string> {
     const payloadLen = bytes.byteLength - HEAD_LEN;
@@ -141,8 +120,6 @@ async function tryMessageDecrypt(bytes: Uint8Array<ArrayBuffer>, channel_id: str
     }
     return text;
 }
-
-
 
 // Optimally we'd be doing this using discords delegate system, but eh
 
