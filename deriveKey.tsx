@@ -9,7 +9,7 @@ import { stringToUint8 } from "./utils";
 export async function deriveKey(password: string, saltArr?: Uint8Array) {
     const SALT_LEN = 16;
     const ITERATIONS = 400_000; // read this from an article
-    const passwordArr = await (stringToUint8(password));
+    const passwordArr = stringToUint8(password);
     const salt: Uint8Array = saltArr ?? crypto.getRandomValues(new Uint8Array(SALT_LEN));
     const key = await crypto.subtle.importKey(
         "raw",
