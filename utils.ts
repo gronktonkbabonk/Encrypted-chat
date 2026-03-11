@@ -5,8 +5,6 @@
  */
 
 import { classNameFactory } from "@utils/css";
-import { getCurrentChannel } from "@utils/discord";
-import { ChannelStore } from "@webpack/common/stores";
 
 export const IV_LEN = 16;
 export const cl = classNameFactory("enc-");
@@ -68,8 +66,4 @@ export function base64ToUint8(base64: string) {
 
 export async function hash(bytes: Uint8Array<ArrayBuffer>) {
     return new Uint8Array(await crypto.subtle.digest({ name: "SHA-256" }, bytes));
-}
-
-export function getCurrentChannelOrDmName() {
-    return getCurrentChannel()?.name ?? ChannelStore.getDMFromUserId(ChannelStore.getDMUserIds()[0]);
 }
