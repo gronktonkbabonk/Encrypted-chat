@@ -20,7 +20,7 @@ import { Alerts } from "@webpack/common";
 import { encryptedStore } from "./encryptedStore";
 import { settings } from "./settings";
 import { cl } from "./utils";
-import { KeySetModal } from "./setKey";
+import { KeySetModal } from "./setChannelKey";
 
 export const EncryptIcon: IconComponent = ({ height = 30, width = 20, className }) => {
     return (
@@ -83,6 +83,24 @@ export function EncryptIconModal({ rootProps }: { rootProps: ModalProps; }) {
     );
 }
 
+function encryptionToggleAlert(enabled: boolean) {
+    const enabledMessage = "The message encryption is now enabled. Anyone without the plugin or the password won't be able to read your messages anymore.";
+    const disabledMessage = "The message encryption is now disabled (Mind that decryption stays unaffected). Your messages will now be sent in plain text. This also counts for messages that have been sent in an encrypted fashion but are edited. So watch out what you write 👀";
+    const message = (enabled) ? enabledMessage : disabledMessage;
+    Alerts.show({
+        title: `Message Encryption ${(enabled) ? "Enabled" : "Disabled"}!`,
+        body: <>
+            <Divider className={Margins.bottom16} />
+            <Paragraph>
+                {message}
+            </Paragraph>
+        </>,
+        confirmText: "Got it",
+        cancelText: "Don't show again",
+        onCancel: () => settings.store.showToggleAlerts = false
+    });
+}
+
 export const EncryptChatBarIcon: ChatBarButtonFactory = ({ isMainChat }) => {
     if (!isMainChat) return null;
 
@@ -92,34 +110,7 @@ export const EncryptChatBarIcon: ChatBarButtonFactory = ({ isMainChat }) => {
         const newState = !enableEncryption;
         settings.store.enableEncryption = newState;
         if (!settings.store.showToggleAlerts) return;
-        if (newState) {
-            Alerts.show({
-                title: "Message Encryption enabled!",
-                body: <>
-                    <Divider className={Margins.bottom16} />
-                    <Paragraph>
-                        The message encryption is now enabled. Anyone without the plugin or the password won't be able to read your messages anymore.
-                    </Paragraph>
-                </>,
-                confirmText: "Got it",
-                cancelText: "Don't show again",
-                onCancel: () => settings.store.showToggleAlerts = false
-            });
-        }
-        else {
-            Alerts.show({
-                title: "Message Encryption disabled!",
-                body: <>
-                    <Divider className={Margins.bottom16} />
-                    <Paragraph>
-                        The message encryption is now disabled (Mind that decryption stays unaffected). Your messages will now be sent in plain text. This also counts for messages that have been sent in an encrypted fashion but are edited. So watch out what you write 👀
-                    </Paragraph>
-                </>,
-                confirmText: "Got it",
-                cancelText: "Don't show again",
-                onCancel: () => settings.store.showToggleAlerts = false
-            });
-        }
+        encryptionToggleAlert(newState);
     };
 
     const button = (
