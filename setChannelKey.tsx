@@ -10,13 +10,13 @@ import { Heading } from "@components/Heading";
 import { Margins } from "@components/margins";
 import { getCurrentChannel } from "@utils/discord";
 import { ModalCloseButton, ModalContent, ModalHeader, ModalProps, ModalRoot } from "@utils/modal";
-import { Alerts, Forms, TextInput, useState } from "@webpack/common";
+import { Alerts, ChannelStore, Forms, TextInput, useState } from "@webpack/common";
 
 import { deriveKey } from "./cryptoFunctions";
 import { settings } from "./settings";
-import { cl, getCurrentChannelOrDmName, hash, stringToUint8, uint8ToBase64 } from "./utils";
+import { cl, hash, stringToUint8, uint8ToBase64 } from "./utils";
 
-const channelName = getCurrentChannelOrDmName();
+const channelName = getCurrentChannel()?.name ?? ChannelStore.getDMFromUserId(ChannelStore.getDMUserIds()[0]);
 
 export function KeySetModal({ rootProps }: { rootProps: ModalProps; }) {
     return (
