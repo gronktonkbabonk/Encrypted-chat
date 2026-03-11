@@ -1,5 +1,11 @@
-import { stringToUint8, base64ToUint8, IV_LEN } from "./utils";
+/*
+ * Vencord, a Discord client mod
+ * Copyright (c) 2026 Vendicated and contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 import { settings } from "./settings";
+import { base64ToUint8, IV_LEN, stringToUint8 } from "./utils";
 
 export async function deriveKey(password: string, saltArr?: Uint8Array) {
     const SALT_LEN = 16;

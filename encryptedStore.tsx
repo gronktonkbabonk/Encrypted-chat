@@ -12,9 +12,12 @@ import { Paragraph } from "@components/Paragraph";
 import { ModalCloseButton, ModalContent, ModalHeader, ModalProps, ModalRoot, openModal } from "@utils/modal";
 import { Alerts, TextInput } from "@webpack/common";
 
-import { base64ToUint8, hash, IV_LEN, uint8ToBase64, uint8ArraysEqual, cl } from "./utils";
 import { decrypt_key, deriveKey, encrypt_key } from "./cryptoFunctions";
+import { base64ToUint8, cl, hash, IV_LEN, uint8ArraysEqual, uint8ToBase64 } from "./utils";
 
+// =======================================================================================
+// I KNOW IT SAYS GRONK BUT THIS IS ALL LEAHS CODE. IT JUST BLAMES ME BECAUSE I MERGED IT.
+// =======================================================================================
 
 const KEY_PREFIX = "enc";
 
