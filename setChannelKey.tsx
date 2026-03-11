@@ -14,7 +14,9 @@ import { Alerts, Forms, TextInput, useState } from "@webpack/common";
 
 import { deriveKey } from "./cryptoFunctions";
 import { settings } from "./settings";
-import { cl, hash, stringToUint8, uint8ToBase64 } from "./utils";
+import { cl, getCurrentChannelOrDmName, hash, stringToUint8, uint8ToBase64 } from "./utils";
+
+const channelName = getCurrentChannelOrDmName();
 
 export function KeySetModal({ rootProps }: { rootProps: ModalProps; }) {
     return (
@@ -27,7 +29,7 @@ export function KeySetModal({ rootProps }: { rootProps: ModalProps; }) {
             </ModalHeader>
 
             <ModalContent className={cl("modal-content")}>
-                Enter de-encryption key for channel {getCurrentChannel()?.name}
+                Enter de-encryption key for channel {channelName}
                 <Divider className={Margins.bottom16} />
                 <SetChannelKey rootProps={rootProps} />
             </ModalContent>
@@ -48,13 +50,13 @@ function SetChannelKey({ rootProps }: { rootProps: ModalProps; }) {
 
     const setKey = async () => {
         const channelIdHash = await getChannelIdHash(channel_id);
-        const derivedKey = (await deriveKey(input, channelIdHash)).derivedKey;
+        const { derivedKey } = await deriveKey(input, channelIdHash);
         const exportedKey = new Uint8Array(await crypto.subtle.exportKey("raw", derivedKey));
         keys[channel_id] = uint8ToBase64(exportedKey);
         console.log(exportedKey);
         console.log(uint8ToBase64(exportedKey));
         Alerts.show({
-            title: `De-encryption key set for channel ${getCurrentChannel()?.name}`,
+            title: `De-encryption key set for channel ${channelName}`,
             body: <></>,
             confirmText: "Got it",
         });
@@ -67,7 +69,7 @@ function SetChannelKey({ rootProps }: { rootProps: ModalProps; }) {
                 title: "Are you sure?",
                 body: <>
                     <Forms.FormText>
-                        You already have a Key set for channel ${getCurrentChannel()?.name} and by changing it you won't be able to decrypt old messages.
+                        You already have a Key set for channel {channelName} and by changing it you won't be able to decrypt old messages.
                     </Forms.FormText>
                 </>,
                 confirmText: "Yes, i'm sure",
