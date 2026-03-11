@@ -12,7 +12,8 @@ import { Paragraph } from "@components/Paragraph";
 import { ModalCloseButton, ModalContent, ModalHeader, ModalProps, ModalRoot, openModal } from "@utils/modal";
 import { Alerts, TextInput } from "@webpack/common";
 
-import { decrypt_key, deriveKey, encrypt_key, base64ToUint8, hash, IV_LEN, uint8ToBase64, uint8ArraysEqual, cl } from "./utils";
+import { base64ToUint8, hash, IV_LEN, uint8ToBase64, uint8ArraysEqual, cl } from "./utils";
+import { decrypt_key, deriveKey, encrypt_key } from "./cryptoFunctions";
 
 
 const KEY_PREFIX = "enc";

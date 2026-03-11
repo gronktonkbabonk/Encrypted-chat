@@ -14,7 +14,8 @@ import { Message } from "@vencord/discord-types";
 
 import { EncryptChatBarIcon, EncryptIcon } from "./encryptIcon";
 import { settings } from "./settings";
-import { base64ToUint8, concatArrayBuffers, decrypt, encrypt, getChannelKey, hash, IV_LEN, stringToUint8, uint8ArraysEqual, uint8ToBase64, uint8ToString } from "./utils";
+import { base64ToUint8, concatArrayBuffers, hash, IV_LEN, stringToUint8, uint8ArraysEqual, uint8ToBase64, uint8ToString } from "./utils";
+import { encrypt, decrypt, getChannelKey } from "./cryptoFunctions";
 
 const regexStartEnd = /START\|([a-zA-Z0-9+/]*?={0,3})\|END/g;
 const regexPing = /<(@[0-9].{17})>/;
