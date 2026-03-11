@@ -6,8 +6,6 @@
 
 import { classNameFactory } from "@utils/css";
 
-import { settings } from "./settings";
-
 export const IV_LEN = 16;
 export const cl = classNameFactory("enc-");
 
