@@ -5,14 +5,21 @@
  */
 
 import { ChatBarButton, ChatBarButtonFactory } from "@api/ChatButtons";
-import { openModal } from "@utils/modal";
+import { Button } from "@components/Button";
+import { Divider } from "@components/Divider";
+import { FormSwitch } from "@components/FormSwitch";
+import { Heading } from "@components/Heading";
+import { Margins } from "@components/margins";
+import { Paragraph } from "@components/Paragraph";
+import { getCurrentChannel } from "@utils/discord";
+import { ModalCloseButton, ModalContent, ModalHeader, ModalProps, ModalRoot } from "@utils/modal";
 import { IconComponent } from "@utils/types";
-import { Alerts, Forms } from "@webpack/common";
+import { Alerts } from "@webpack/common";
+import { MouseEvent } from "react";
 
-import { KeySetModal } from "./setKey";
+import { encryptedStore } from "./encryptedStore";
 import { settings } from "./settings";
 import { cl } from "./utils";
-
 
 export const EncryptIcon: IconComponent = ({ height = 30, width = 20, className }) => {
     return (
@@ -27,7 +34,50 @@ export const EncryptIcon: IconComponent = ({ height = 30, width = 20, className 
     );
 };
 
-export const encryptChatBarIcon: ChatBarButtonFactory = ({ isMainChat }) => {
+function EncryptMessagesToggle() {
+    const value = settings.use(["enableEncryption"]).enableEncryption;
+
+    return (
+        <FormSwitch
+            title="Encrypt messages"
+            description="Enable or disable encryption for messages you send"
+            value={value}
+            onChange={v => settings.store.enableEncryption = v}
+            hideBorder
+        />
+    );
+}
+
+
+function startKeyExchange(e: MouseEvent) {
+
+}
+
+export function EncryptModal({ rootProps }: { rootProps: ModalProps; }) {
+    const KeyExchangePossible = getCurrentChannel()?.isDM();
+    return (
+        <ModalRoot {...rootProps}>
+            <ModalHeader className={cl("modal-header")}>
+                <Heading tag="h1" className={cl("modal-title")}>
+                    Encrypted Chat
+                </Heading>
+                <ModalCloseButton onClick={rootProps.onClose} />
+            </ModalHeader>
+
+            <ModalContent className={cl("modal-content")}>
+                <Divider className={Margins.bottom16} />
+                <EncryptMessagesToggle />
+                <Divider className={Margins.bottom16} />
+                <Button className={cl("modal-button")} disabled={!KeyExchangePossible} onClick={startKeyExchange}>
+                    Start Key Exchange
+                </Button>
+            </ModalContent>
+
+        </ModalRoot>
+    );
+}
+
+export const EncryptChatBarIcon: ChatBarButtonFactory = ({ isMainChat }) => {
     if (!isMainChat) return null;
 
     const { enableEncryption } = settings.use(["enableEncryption"]);
@@ -35,26 +85,33 @@ export const encryptChatBarIcon: ChatBarButtonFactory = ({ isMainChat }) => {
     const toggle = () => {
         const newState = !enableEncryption;
         settings.store.enableEncryption = newState;
-        if (newState !== false) {
+        if (!settings.store.showToggleAlerts) return;
+        if (newState) {
             Alerts.show({
-                title: "Message Encryption enabled! Click again to disable.",
+                title: "Message Encryption enabled!",
                 body: <>
-                    <Forms.FormText>
-                        Message Encryption Enabled!
-                    </Forms.FormText>
+                    <Divider className={Margins.bottom16} />
+                    <Paragraph>
+                        The message encryption is now enabled. Anyone without the plugin or the password won't be able to read your messages anymore.
+                    </Paragraph>
                 </>,
                 confirmText: "Got it",
+                cancelText: "Don't show again",
+                onCancel: () => settings.store.showToggleAlerts = false
             });
         }
         else {
             Alerts.show({
-                title: "Message Encryption disabled! Click again to enable",
+                title: "Message Encryption disabled!",
                 body: <>
-                    <Forms.FormText>
-                        Message Encryption Disabled!
-                    </Forms.FormText>
+                    <Divider className={Margins.bottom16} />
+                    <Paragraph>
+                        The message encryption is now disabled (Mind that decryption stays unaffected). Your messages will now be sent in plain text. This also counts for messages that have been sent in an encrypted fashion but are edited. So watch out what you write 👀
+                    </Paragraph>
                 </>,
                 confirmText: "Got it",
+                cancelText: "Don't show again",
+                onCancel: () => settings.store.showToggleAlerts = false
             });
         }
     };
@@ -64,9 +121,16 @@ export const encryptChatBarIcon: ChatBarButtonFactory = ({ isMainChat }) => {
             tooltip="Toggle encryption"
             onClick={e => {
                 if (e.shiftKey) return toggle();
-                openModal(props => (
-                    <KeySetModal rootProps={props} />
-                ));
+                if (!encryptedStore.isInit()) {
+                    encryptedStore.user_prompt_store();
+                    return;
+                }
+                // openModal(props => (
+                //     <KeySetModal rootProps={props} />
+                // ));
+                // openModal(props => (
+                //     <EncryptModal rootProps={props} />
+                // ));
             }}
         >
             <EncryptIcon className={cl({ "activated": enableEncryption })} />

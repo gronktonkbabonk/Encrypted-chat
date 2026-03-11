@@ -12,16 +12,26 @@ import { Logger } from "@utils/Logger";
 import definePlugin from "@utils/types";
 import { Message } from "@vencord/discord-types";
 
-import { encryptChatBarIcon, EncryptIcon } from "./encryptIcon";
+import { EncryptChatBarIcon, EncryptIcon } from "./encryptIcon";
 import { settings } from "./settings";
-import { base64ToUint8, getChannelKey, hash, stringToUint8, uint8ToBase64, uint8ToString } from "./utils";
+import { base64ToUint8, concatArrayBuffers, decrypt, encrypt, getChannelKey, hash, IV_LEN, stringToUint8, uint8ArraysEqual, uint8ToBase64, uint8ToString } from "./utils";
 
-const regexStartEnd = /START\|([a-zA-Z0-9+/]*?={0,3})\|END/;
+const regexStartEnd = /START\|([a-zA-Z0-9+/]*?={0,3})\|END/g;
 const regexPing = /<(@[0-9].{17})>/;
 
-const IV_LEN = 16;
+const MESSGE_TYPE_LEN = 1;
 const CHECKSUM_LEN = 8; // Ought to be enuf
+
+const HEAD_LEN = MESSGE_TYPE_LEN;
+
+const ENCRYPT_HEAD_LEN = IV_LEN + CHECKSUM_LEN;
 const AES_BLOCKSIZE = 16;
+
+enum MessageType {
+    Encrypted = 1,
+    PubKeyShare = 2,
+    PasswordVerify = 3,
+}
 
 /*
  * |=============================================================================================|
@@ -32,61 +42,23 @@ const AES_BLOCKSIZE = 16;
 
 const LOGGER = new Logger("EncryptedChat", "#ff9900");
 
-// async function encrypt(text: string, password: Uint8Array<ArrayBuffer>) {
-async function encrypt(text: string, key: CryptoKey) {
-    const messageBytes = stringToUint8(text);
-    // const key = await crypto.subtle.importKey(
-    //     "raw",
-    //     password,
-    //     { name: "AES-GCM" },
-    //     false,
-    //     ["encrypt"]
-    // );
-    const iv = crypto.getRandomValues(new Uint8Array(IV_LEN));
+// async function encrypt(text: string, key: CryptoKey) {
+//     const messageBytes = stringToUint8(text);
+//     const iv = crypto.getRandomValues(new Uint8Array(IV_LEN));
 
-    const encrypted = await crypto.subtle.encrypt(
-        {
-            name: "AES-GCM",
-            iv: iv,
-        },
-        key,
-        messageBytes
-    );
 
-    return { encrypted: encrypted, iv: iv };
-}
 
-async function decrypt(messageBytes: Uint8Array<ArrayBuffer>, key: CryptoKey, iv: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
-    // const key = await crypto.subtle.importKey(
-    //     "raw",
-    //     password,
-    //     { name: "AES-GCM" },
-    //     false,
-    //     ["encrypt", "decrypt"]
-    // );
-    const decrypted = await crypto.subtle.decrypt(
-        {
-            name: "AES-GCM",
-            iv: iv,
-        },
-        key,
-        messageBytes
-    );
-    return new Uint8Array(decrypted);
-}
-
-function concatArrayBuffers(...buffers: Uint8Array[]): Uint8Array {
-    const totalLength = buffers.reduce((sum, buf) => sum + buf.byteLength, 0);
-    const result = new Uint8Array(totalLength);
-
-    let offset = 0;
-    for (const buffer of buffers) {
-        result.set(buffer, offset);
-        offset += buffer.byteLength;
-    }
-
-    return result;
-}
+// async function decrypt(messageBytes: Uint8Array<ArrayBuffer>, key: CryptoKey, iv: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
+//     const decrypted = await crypto.subtle.decrypt(
+//         {
+//             name: "AES-GCM",
+//             iv: iv,
+//         },
+//         key,
+//         messageBytes
+//     );
+//     return new Uint8Array(decrypted);
+// }
 
 async function createChecksum(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
     return (await hash(bytes)).slice(0, CHECKSUM_LEN);
@@ -95,39 +67,60 @@ async function createChecksum(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Arra
 async function messageEncrypt(inText: string, channel_id: string): Promise<string> {
     const textBytes = stringToUint8(inText);
     const checksum = await createChecksum(textBytes);
-    // LOGGER.log(`Plain bytes: ${textBytes}`);
+    const header = new Uint8Array([MessageType.Encrypted]);
     // LOGGER.log(`Encrypt checksum: ${checksum}`);
     const { encrypted, iv } = await encrypt(inText, await getChannelKey(channel_id));
-    const messageBytes = concatArrayBuffers(iv, checksum, new Uint8Array(encrypted));
+    const messageBytes = concatArrayBuffers(header, iv, checksum, new Uint8Array(encrypted));
+    // LOGGER.log(`Message bytes: ${messageBytes.byteLength}, encrypted bytes: ${encrypted.byteLength}`);
     return `START|${uint8ToBase64(messageBytes)}|END`;
 }
 
-function uint8ArraysEqual(a, b) {
-    if (a === b) return true; // same reference
-    if (a.length !== b.length) return false;
 
-    for (let i = 0; i < a.length; i++) {
-        if (a[i] !== b[i]) return false;
+
+
+async function tryMessageHandle(bytes: Uint8Array<ArrayBuffer>, channel_id: string): Promise<undefined | string> {
+    const payloadLen = bytes.byteLength - HEAD_LEN;
+    if (payloadLen < 0) {
+        // This can't be a valid payload since the sizes are wrong
+        LOGGER.warn(`Message has valid Start End encoding, yet payload len (${payloadLen}) is too small`);
+        // return;
     }
 
-    return true;
+    let read = 0;
+
+    const message_type = bytes.slice(read, MESSGE_TYPE_LEN);
+    read += MESSGE_TYPE_LEN;
+
+    switch (message_type[0]) {
+        case MessageType.Encrypted:
+            return tryMessageDecrypt(bytes.slice(read), channel_id);
+        default:
+            LOGGER.warn(`Unhandled message type: ${message_type[0]}. Maybe this is due to an outdated version`);
+
+    }
+
 }
 
 async function tryMessageDecrypt(bytes: Uint8Array<ArrayBuffer>, channel_id: string): Promise<undefined | string> {
-    if ((bytes.byteLength - IV_LEN - CHECKSUM_LEN) % AES_BLOCKSIZE !== 0) {
-        // This can't be a valid payload since the sizes are wrong
-        LOGGER.warn(`Message has valid Start End encoding, yet payload size (${bytes.byteLength - IV_LEN - CHECKSUM_LEN}) is wrong (Should be a multiple of ${AES_BLOCKSIZE}).`);
-        // return;
-    }
-    const iv = bytes.slice(0, IV_LEN);
-    // LOGGER.log("Decrypt IVS: ", iv);
-    const messageChecksum = bytes.slice(IV_LEN, IV_LEN + CHECKSUM_LEN);
-    // LOGGER.log("Decrypt checksum: ", messageChecksum);
+    const payloadLen = bytes.byteLength - ENCRYPT_HEAD_LEN;
 
-    const encrypted = bytes.slice(IV_LEN + CHECKSUM_LEN, bytes.byteLength);
+    if (payloadLen <= 0) {
+        LOGGER.warn(`Message has valid Start End encoding, yet payload len (${payloadLen}) is wrong Should be bigger than 0`);
+        return;
+    }
+
+    let read = 0;
+
+    const iv = bytes.slice(read, read + IV_LEN);
+    read += IV_LEN;
+
+    const messageChecksum = bytes.slice(read, read + CHECKSUM_LEN);
+    read += CHECKSUM_LEN;
+
+    const payload = bytes.slice(read, bytes.byteLength);
     // LOGGER.log("Encrypted Bytes: ", encrypted);
 
-    const decrypted = await decrypt(encrypted, await getChannelKey(channel_id), iv);
+    const decrypted = await decrypt(payload, await getChannelKey(channel_id), iv);
     // LOGGER.log("Decrypted ", decrypted);
 
     const checksum = await createChecksum(decrypted);
@@ -149,30 +142,35 @@ async function tryMessageDecrypt(bytes: Uint8Array<ArrayBuffer>, channel_id: str
 }
 
 
-function handleIncomingMessage(message: Message) {
-    const matches = regexStartEnd.exec(message.content);
-    if (!matches) {
-        // LOGGER.info(`Incoming message (${message.content}) didn't match with the regex`);
-        return;
-    }
-    const base64 = matches[1];
-    // LOGGER.info(`Extracted base64 part: '${base64}'`);
-    let bytes;
-    try {
-        bytes = base64ToUint8(base64);
-    } catch {
-        // LOGGER.error("Extracted part wasn't valid base 64 (which should be impossible)");
-        return;
-    }
 
-    tryMessageDecrypt(bytes, message.channel_id).then(function (decrypted: string | undefined) {
-        if (!decrypted) {
-            // This message probably wasn't encrypted to begin with
-            return;
+// Optimally we'd be doing this using discords delegate system, but eh
+
+function handleIncomingMessage(message: Message) {
+    while (true) {
+        const matches = regexStartEnd.exec(message.content);
+        if (!matches) {
+            // LOGGER.info(`Incoming message (${message.content}) didn't match with the regex`);
+            break;
         }
-        // This might be run even before the message has first rendered, is that bad? who knoes
-        updateMessage(message.channel_id, message.id, { content: decrypted });
-    });
+
+        const base64 = matches[1];
+        const { index } = matches;
+        const { length } = matches[0];
+        LOGGER.info(`Matches: '${matches}', ${index}, ${length}`);
+        // LOGGER.info(`Extracted base64 part: '${base64}'`);
+        const bytes = base64ToUint8(base64);
+        if (!bytes) break;
+
+        tryMessageHandle(bytes, message.channel_id).then(function (decrypted: string | undefined) {
+            if (!decrypted) {
+                // This message probably wasn't encrypted to begin with
+                return;
+            }
+            // This shouldn't cause any raceconditions since ts runs on a single thread :skull:
+            // This might be run even before the message has first rendered, is that bad? who knoes
+            updateMessage(message.channel_id, message.id, { content: message.content.slice(0, index) + decrypted + message.content.slice(index + length) });
+        });
+    }
 
     return message.content;
 }
@@ -186,7 +184,7 @@ export default definePlugin({
 
     chatBarButton: {
         icon: EncryptIcon,
-        render: encryptChatBarIcon
+        render: EncryptChatBarIcon
     },
 
     handleIncomingMessage,
