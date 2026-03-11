@@ -43,10 +43,10 @@ export class EncryptedStore {
             known_salt = base64ToUint8(salt_string);
         }
 
-        const { key, salt } = await deriveKey(master_password, known_salt);
+        const { derivedKey, salt } = await deriveKey(master_password, known_salt);
         this.innerStore[salt_key] = uint8ToBase64(salt);
 
-        const plain_key = new Uint8Array(await crypto.subtle.exportKey("raw", key));
+        const plain_key = new Uint8Array(await crypto.subtle.exportKey("raw", derivedKey));
         const computed_password_hash = await hash(plain_key);
         const ref_password_hash_string = this.innerStore[key_hash_key];
         if (ref_password_hash_string) {
@@ -59,7 +59,7 @@ export class EncryptedStore {
         }
 
         this.innerStore[key_hash_key] = uint8ToBase64(computed_password_hash);
-        this.crypt_key = key;
+        this.crypt_key = derivedKey;
         this.keyPrefix = keyPrefix;
         this.is_init = true;
         return true;

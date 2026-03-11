@@ -18,7 +18,6 @@ import { base64ToUint8, concatArrayBuffers, hash, IV_LEN, stringToUint8, uint8Ar
 import { encrypt, decrypt, getChannelKey } from "./cryptoFunctions";
 
 const regexStartEnd = /START\|([a-zA-Z0-9+/]*?={0,3})\|END/g;
-const regexPing = /<(@[0-9].{17})>/;
 
 const MESSGE_TYPE_LEN = 1;
 const CHECKSUM_LEN = 8; // Ought to be enuf
@@ -26,7 +25,6 @@ const CHECKSUM_LEN = 8; // Ought to be enuf
 const HEAD_LEN = MESSGE_TYPE_LEN;
 
 const ENCRYPT_HEAD_LEN = IV_LEN + CHECKSUM_LEN;
-const AES_BLOCKSIZE = 16;
 
 enum MessageType {
     Encrypted = 1,
@@ -63,7 +61,7 @@ async function tryMessageHandle(bytes: Uint8Array<ArrayBuffer>, channel_id: stri
     if (payloadLen < 0) {
         // This can't be a valid payload since the sizes are wrong
         LOGGER.warn(`Message has valid Start End encoding, yet payload len (${payloadLen}) is too small`);
-        // return;
+        // return; <--- why is this commented out?
     }
 
     let read = 0;
@@ -153,7 +151,6 @@ function handleIncomingMessage(message: Message) {
     return message.content;
 }
 
-
 export default definePlugin({
     name: "EncryptedChat",
     description: "A plugin to let you communicate with symmetric encryption in servers (TODO: asymmetric for DMS)",
@@ -168,7 +165,7 @@ export default definePlugin({
     handleIncomingMessage,
 
     patches: [
-        {
+        {  // GRAH I HATE PATCHES
             find: "!1,hideSimpleEmbedContent",
             replacement: {
                 match: /(let{toAST:.{0,125}?)\(\i\?\?\i\).content/,

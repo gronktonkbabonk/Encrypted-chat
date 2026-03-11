@@ -12,7 +12,7 @@ import { getCurrentChannel } from "@utils/discord";
 import { ModalCloseButton, ModalContent, ModalHeader, ModalProps, ModalRoot } from "@utils/modal";
 import { Alerts, Forms, TextInput, useState } from "@webpack/common";
 
-import { deriveKey } from "./deriveKey";
+import { deriveKey } from "./cryptoFunctions";
 import { settings } from "./settings";
 import { cl, hash, stringToUint8, uint8ToBase64 } from "./utils";
 
@@ -48,8 +48,8 @@ function SetChannelKey({ rootProps }: { rootProps: ModalProps; }) {
 
     const setKey = async () => {
         const channelIdHash = await getChannelIdHash(channel_id);
-        const derivedKey = await deriveKey(input, channelIdHash);
-        const exportedKey = new Uint8Array(await crypto.subtle.exportKey("raw", derivedKey.derived));
+        const derivedKey = (await deriveKey(input, channelIdHash)).derivedKey;
+        const exportedKey = new Uint8Array(await crypto.subtle.exportKey("raw", derivedKey));
         keys[channel_id] = uint8ToBase64(exportedKey);
         console.log(exportedKey);
         console.log(uint8ToBase64(exportedKey));

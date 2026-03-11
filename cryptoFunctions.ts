@@ -1,13 +1,11 @@
 import { stringToUint8, base64ToUint8, IV_LEN } from "./utils";
 import { settings } from "./settings";
 
-export async function deriveKey(password: string, salt: Uint8Array<ArrayBuffer> | undefined) {
-    const SALT_LEN = 8;
+export async function deriveKey(password: string, saltArr?: Uint8Array) {
+    const SALT_LEN = 16;
     const ITERATIONS = 400_000; // read this from an article
-    const passwordArr = await (stringToUint8(password));
-    if (!salt) {
-        salt = crypto.getRandomValues(new Uint8Array(SALT_LEN));
-    }
+    const passwordArr = stringToUint8(password);
+    const salt: Uint8Array = saltArr ?? crypto.getRandomValues(new Uint8Array(SALT_LEN));
     const key = await crypto.subtle.importKey(
         "raw",
         passwordArr,
@@ -15,11 +13,11 @@ export async function deriveKey(password: string, salt: Uint8Array<ArrayBuffer> 
         false,
         ["deriveKey"]
     );
-    const derived = await crypto.subtle.deriveKey(
+    const derivedKey = await crypto.subtle.deriveKey(
         {
             name: "PBKDF2",
             hash: "SHA-256",
-            salt: salt,
+            salt: salt as BufferSource,
             iterations: ITERATIONS
         },
         key,
@@ -30,7 +28,7 @@ export async function deriveKey(password: string, salt: Uint8Array<ArrayBuffer> 
         true,
         ["encrypt", "decrypt"]
     );
-    return { key: derived, salt: salt };
+    return { derivedKey, salt };
 }
 
 export async function decrypt(messageBytes: Uint8Array<ArrayBuffer>, key: CryptoKey, iv: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
