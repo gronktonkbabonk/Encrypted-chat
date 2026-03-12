@@ -5,20 +5,17 @@
  */
 
 import { ChatBarButton, ChatBarButtonFactory } from "@api/ChatButtons";
-import { Button } from "@components/Button";
 import { Divider } from "@components/Divider";
 import { FormSwitch } from "@components/FormSwitch";
-import { Heading } from "@components/Heading";
 import { Margins } from "@components/margins";
 import { Paragraph } from "@components/Paragraph";
-import { getCurrentChannel } from "@utils/discord";
-import { ModalCloseButton, ModalContent, ModalHeader, ModalProps, ModalRoot, openModal } from "@utils/modal";
+import { openModal } from "@utils/modal";
 import { IconComponent } from "@utils/types";
 import { Alerts } from "@webpack/common";
+import { MouseEvent } from "react";
 
-// import { MouseEvent } from "react";
 import { encryptedStore } from "./encryptedStore";
-import { KeySetModal } from "./setChannelKey";
+import { EncryptIconModal } from "./modals";
 import { settings } from "./settings";
 import { cl } from "./utils";
 
@@ -35,7 +32,7 @@ export const EncryptIcon: IconComponent = ({ height = 30, width = 20, className 
     );
 };
 
-function EncryptMessagesToggle() {
+export function EncryptMessagesToggle() {
     const value = settings.use(["enableEncryption"]).enableEncryption;
 
     return (
@@ -52,35 +49,6 @@ function EncryptMessagesToggle() {
 
 function startKeyExchange(e: MouseEvent) {
 
-}
-
-
-export function EncryptIconModal({ rootProps }: { rootProps: ModalProps; }) {
-    const KeyExchangePossible = getCurrentChannel()?.isDM();
-    return (
-        <ModalRoot {...rootProps}>
-            <ModalHeader className={cl("modal-header")}>
-                <Heading tag="h1" className={cl("modal-title")}>
-                    Encrypted Chat
-                </Heading>
-                <ModalCloseButton onClick={rootProps.onClose} />
-            </ModalHeader>
-
-            <ModalContent className={cl("modal-content")}>
-                <Divider className={Margins.bottom16} />
-                <EncryptMessagesToggle />
-                <Divider className={Margins.bottom16} />
-                <Button className={cl("modal-button")} /* disabled={KeyExchangePossible}*/ onClick={() => { openModal(props => (<KeySetModal rootProps={props} />)); }}>
-                    Set Channel Key
-                </Button>
-                <Divider className={Margins.bottom16} />
-                <Button className={[cl("modal-button"), Margins.bottom16].join(" ")} disabled={!KeyExchangePossible} /* onClick={startKeyExchange}*/>
-                    Start Key Exchange
-                </Button>
-            </ModalContent>
-
-        </ModalRoot>
-    );
 }
 
 function encryptionToggleAlert(enabled: boolean) {
@@ -115,7 +83,7 @@ export const EncryptChatBarIcon: ChatBarButtonFactory = ({ isMainChat }) => {
 
     const button = (
         <ChatBarButton
-            tooltip="Open Encryption Menu"
+            tooltip="Open Encryption Menu or Shift Click to Toggle Encryption"
             onClick={e => {
                 if (e.shiftKey) return toggle();
                 if (!encryptedStore.isInit()) {

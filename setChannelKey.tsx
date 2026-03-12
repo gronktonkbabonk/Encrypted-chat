@@ -5,44 +5,21 @@
  */
 
 import { Button } from "@components/Button";
-import { Divider } from "@components/Divider";
-import { Heading } from "@components/Heading";
 import { Margins } from "@components/margins";
+import { Paragraph } from "@components/Paragraph";
 import { getCurrentChannel } from "@utils/discord";
-import { ModalCloseButton, ModalContent, ModalHeader, ModalProps, ModalRoot } from "@utils/modal";
-import { Alerts, ChannelStore, Forms, TextInput, useState } from "@webpack/common";
+import { ModalProps } from "@utils/modal";
+import { Alerts, TextInput, useState } from "@webpack/common";
 
 import { deriveKey } from "./cryptoFunctions";
 import { settings } from "./settings";
-import { cl, hash, stringToUint8, uint8ToBase64 } from "./utils";
-
-const channelName = getCurrentChannel()?.name ?? ChannelStore.getDMFromUserId(ChannelStore.getDMUserIds()[0]);
-
-export function KeySetModal({ rootProps }: { rootProps: ModalProps; }) {
-    return (
-        <ModalRoot {...rootProps}>
-            <ModalHeader className={cl("modal-header")}>
-                <Heading tag="h1" className={cl("modal-title")}>
-                    Encrypted Chat
-                </Heading>
-                <ModalCloseButton onClick={rootProps.onClose} />
-            </ModalHeader>
-
-            <ModalContent className={cl("modal-content")}>
-                Enter de-encryption key for channel {channelName}
-                <Divider className={Margins.bottom16} />
-                <SetChannelKey rootProps={rootProps} />
-            </ModalContent>
-
-        </ModalRoot>
-    );
-}
+import { getCurrentChannelOrDmName, hash, stringToUint8, uint8ToBase64 } from "./utils";
 
 async function getChannelIdHash(channel_id: string) {
     return new Uint8Array(await (hash(stringToUint8(channel_id))));
 }
 
-function SetChannelKey({ rootProps }: { rootProps: ModalProps; }) {
+export function SetChannelKey({ rootProps }: { rootProps: ModalProps; }) {
     const channel_id = getCurrentChannel()?.id ?? -1;
     if (channel_id === -1) return -1;
     const keys = settings.use(["storedKeys"]).storedKeys;
@@ -56,7 +33,7 @@ function SetChannelKey({ rootProps }: { rootProps: ModalProps; }) {
         console.log(exportedKey);
         console.log(uint8ToBase64(exportedKey));
         Alerts.show({
-            title: `De-encryption key set for channel ${channelName}`,
+            title: `De-encryption key set for channel ${getCurrentChannelOrDmName()}`,
             body: <></>,
             confirmText: "Got it",
         });
@@ -68,9 +45,9 @@ function SetChannelKey({ rootProps }: { rootProps: ModalProps; }) {
             Alerts.show({
                 title: "Are you sure?",
                 body: <>
-                    <Forms.FormText>
-                        You already have a Key set for channel {channelName} and by changing it you won't be able to decrypt old messages.
-                    </Forms.FormText>
+                    <Paragraph>
+                        You already have a Key set for channel {getCurrentChannelOrDmName()} and by changing it you won't be able to decrypt old messages.
+                    </Paragraph>
                 </>,
                 confirmText: "Yes, i'm sure",
                 cancelText: "Actually, never mind",

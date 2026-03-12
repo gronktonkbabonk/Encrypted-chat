@@ -4,16 +4,15 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { Button } from "@components/Button";
 import { Divider } from "@components/Divider";
-import { Heading } from "@components/Heading";
 import { Margins } from "@components/margins";
 import { Paragraph } from "@components/Paragraph";
-import { ModalCloseButton, ModalContent, ModalHeader, ModalProps, ModalRoot, openModal } from "@utils/modal";
-import { Alerts, TextInput } from "@webpack/common";
+import { openModal } from "@utils/modal";
+import { Alerts } from "@webpack/common";
 
 import { decrypt_key, deriveKey, encrypt_key } from "./cryptoFunctions";
-import { base64ToUint8, cl, hash, IV_LEN, uint8ArraysEqual, uint8ToBase64 } from "./utils";
+import { MasterPasswordModal } from "./modals";
+import { base64ToUint8, hash, IV_LEN, uint8ArraysEqual, uint8ToBase64 } from "./utils";
 
 // =======================================================================================
 // I KNOW IT SAYS GRONK BUT THIS IS ALL LEAHS CODE. IT JUST BLAMES ME BECAUSE I MERGED IT.
@@ -29,7 +28,7 @@ export class EncryptedStore {
 
     is_init: boolean = false;
 
-    innerStore = // settings.store.encryptedStore;
+    innerStore = // settings.store.storedKeys;
         {};
     public isInit(): boolean {
         return this.is_init;
@@ -135,34 +134,6 @@ export class EncryptedStore {
 }
 
 
-export function MasterPasswordModal({ rootProps, on_confirm }: { rootProps: ModalProps; on_confirm: ((password: string, rootProps: ModalProps) => void); }) {
-    let value = "";
-    return (
-        <ModalRoot {...rootProps} className={cl("modal-root")}>
-            <ModalHeader className={cl("modal-header")}>
-                <Heading tag="h1" className={cl("modal-title")}>
-                    Encrypted Chat
-                </Heading>
-                <ModalCloseButton onClick={rootProps.onClose} />
-            </ModalHeader>
 
-            <ModalContent className={cl("modal-content")}>
-                <Divider className={Margins.bottom16} />
-                <Paragraph className={Margins.bottom16}>
-                    The key database hasn't been unlocked yet or a master key hasn't yet been set. Please enter a master key.
-                </Paragraph>
-                <TextInput placeholder="Master key" onChange={v => {
-                    value = v;
-                }}></TextInput>
-                <Button className={cl("modal-button")} onClick={() => {
-                    on_confirm(value, rootProps);
-                }} >
-                    Confirm!
-                </Button>
-            </ModalContent>
-
-        </ModalRoot>
-    );
-}
 
 export const encryptedStore = new EncryptedStore();
