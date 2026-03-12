@@ -12,13 +12,27 @@ import { Alerts } from "@webpack/common";
 
 import { decrypt_key, deriveKey, encrypt_key } from "./cryptoFunctions";
 import { MasterPasswordModal } from "./modals";
-import { base64ToUint8, hash, IV_LEN, uint8ArraysEqual, uint8ToBase64 } from "./utils";
+import { base64ToUint8, hash, IV_LEN, KEY_PREFIX, uint8ArraysEqual, uint8ToBase64 } from "./utils";
 
 // =======================================================================================
 // I KNOW IT SAYS GRONK BUT THIS IS ALL LEAHS CODE. IT JUST BLAMES ME BECAUSE I MERGED IT.
 // =======================================================================================
 
-const KEY_PREFIX = "enc";
+function MasterPasswordStatusAlert(enabled: boolean) {
+    const enabledMessage = "You can now use cryptographic features!";
+    const disabledMessage = "The master password you entered was incorrect. Cryptographic features will be disabled until you enter the correct one.";
+    const message = (enabled) ? enabledMessage : disabledMessage;
+    Alerts.show({
+        title: `Master Password ${(enabled) ? "Correct" : "Incorrect"}`,
+        body: <>
+            <Divider className={Margins.bottom16} />
+            <Paragraph>
+                {message}
+            </Paragraph>
+        </>,
+        confirmText: (enabled) ? "Yippe!" : "Zamn ):"
+    });
+}
 
 // A wrapper around localStorage providing encryption using a master password
 export class EncryptedStore {
@@ -28,7 +42,7 @@ export class EncryptedStore {
 
     is_init: boolean = false;
 
-    innerStore = // settings.store.storedKeys;
+    innerStore = // settings.store.storedKeys; This is supposed to be an object in localStorage im pretty sure
         {};
     public isInit(): boolean {
         return this.is_init;
@@ -37,7 +51,7 @@ export class EncryptedStore {
     // Initializes the Encrypted store. Returns true if the master password was correct or if the master password hasn't been set yet.
     public async init(master_password: string, keyPrefix: string): Promise<boolean> {
         const salt_key = `${keyPrefix}-master-salt`;
-        const key_hash_key = `${keyPrefix}-key-hash`;
+        const key_hash_key = `${keyPrefix}-key-hash`; // key for the key hash
 
         const salt_string = this.innerStore[salt_key];
         let known_salt;
@@ -49,18 +63,18 @@ export class EncryptedStore {
         this.innerStore[salt_key] = uint8ToBase64(salt);
 
         const plain_key = new Uint8Array(await crypto.subtle.exportKey("raw", derivedKey));
-        const computed_password_hash = await hash(plain_key);
+        const plain_key_hash = await hash(plain_key);
         const ref_password_hash_string = this.innerStore[key_hash_key];
         if (ref_password_hash_string) {
             const ref_password_hash = base64ToUint8(ref_password_hash_string);
             if (ref_password_hash) {
-                if (!uint8ArraysEqual(ref_password_hash, computed_password_hash)) {
+                if (!uint8ArraysEqual(ref_password_hash, plain_key_hash)) {
                     return false;
                 }
             }
         }
 
-        this.innerStore[key_hash_key] = uint8ToBase64(computed_password_hash);
+        this.innerStore[key_hash_key] = uint8ToBase64(plain_key_hash);
         this.crypt_key = derivedKey;
         this.keyPrefix = keyPrefix;
         this.is_init = true;
@@ -95,6 +109,7 @@ export class EncryptedStore {
         this.innerStore[`${this.keyPrefix}-${key}-val`] = uint8ToBase64(new Uint8Array(encrypted));
         this.innerStore[`${this.keyPrefix}-${key}-iv`] = uint8ToBase64(iv);
     }
+
     public user_prompt_store(): boolean {
         if (this.isInit()) {
             return true;
@@ -103,37 +118,13 @@ export class EncryptedStore {
             <MasterPasswordModal rootProps={props} on_confirm={(password, p) => {
                 p.onClose();
                 this.init(password, KEY_PREFIX).then(success => {
-                    if (success) {
-                        Alerts.show({
-                            title: "Master password correct",
-                            body: <>
-                                <Divider className={Margins.bottom16} />
-                                <Paragraph>
-                                    You can now use cryptographic features!
-                                </Paragraph>
-                            </>,
-                            confirmText: "Yippe!",
-                        });
-                    } else {
-                        Alerts.show({
-                            title: "Master password incorrect",
-                            body: <>
-                                <Divider className={Margins.bottom16} />
-                                <Paragraph>
-                                    The master password you entered was incorrect. Cryptographic features will be disabled until you enter the correct one.
-                                </Paragraph>
-                            </>,
-                            confirmText: "Zamn ):",
-                        });
-                    }
+                    MasterPasswordStatusAlert(success);
                 });
             }} />
         ));
         return false;
     }
 }
-
-
 
 
 export const encryptedStore = new EncryptedStore();

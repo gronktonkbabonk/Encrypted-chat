@@ -9,7 +9,9 @@ import { getCurrentChannel } from "@utils/discord";
 import { ChannelStore } from "@webpack/common";
 
 export const IV_LEN = 16;
-export const cl = classNameFactory("enc-");
+export const KEY_PREFIX = "enc";
+
+export const cl = classNameFactory(`${KEY_PREFIX}-`);
 
 
 export function concatArrayBuffers(...buffers: Uint8Array[]): Uint8Array {
