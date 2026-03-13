@@ -21,6 +21,7 @@ import { cl } from "./utils";
 
 export const EncryptIcon: IconComponent = ({ height = 30, width = 20, className }) => {
     return (
+        // BIGASS SVG we need another
         <svg
             viewBox="0 96 960 960"
             height={height}
@@ -32,6 +33,7 @@ export const EncryptIcon: IconComponent = ({ height = 30, width = 20, className 
     );
 };
 
+// this returns the switch in the modal that enables or disables encryption
 export function EncryptMessagesToggle() {
     const value = settings.use(["enableEncryption"]).enableEncryption;
 
@@ -51,6 +53,7 @@ function startKeyExchange(e: MouseEvent) {
 
 }
 
+// this is just so we don't have repetetive code
 function encryptionToggleAlert(enabled: boolean) {
     const enabledMessage = "The message encryption is now enabled. Anyone without the plugin or the password won't be able to read your messages anymore.";
     const disabledMessage = "The message encryption is now disabled (Mind that decryption stays unaffected). Your messages will now be sent in plain text. This also counts for messages that have been sent in an encrypted fashion but are edited. So watch out what you write 👀";
@@ -74,6 +77,7 @@ export const EncryptChatBarIcon: ChatBarButtonFactory = ({ isMainChat }) => {
 
     const { enableEncryption } = settings.use(["enableEncryption"]);
 
+    // this toggles on and off encryption
     const toggle = () => {
         const newState = !enableEncryption;
         settings.store.enableEncryption = newState;
@@ -81,11 +85,13 @@ export const EncryptChatBarIcon: ChatBarButtonFactory = ({ isMainChat }) => {
         encryptionToggleAlert(newState);
     };
 
+    // this is the chatbar button itself
     const button = (
         <ChatBarButton
             tooltip="Open Encryption Menu or Shift Click to Toggle Encryption"
             onClick={e => {
                 if (e.shiftKey) return toggle();
+                // if you shift click it it just toggles without opening the modal
                 if (!encryptedStore.isInit()) {
                     encryptedStore.user_prompt_store();
                     return;

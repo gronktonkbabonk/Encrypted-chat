@@ -5,7 +5,9 @@
  */
 
 import { settings } from "./settings";
-import { base64ToUint8, IV_LEN, stringToUint8 } from "./utils";
+import { base64ToUint8, hash, IV_LEN, stringToUint8 } from "./utils";
+
+export const CHECKSUM_LEN = 8; // Ought to be enuf
 
 // derives a key from a string using PBKDF2. A salt can be passed or else it is automatically generated.
 export async function deriveKey(password: string, saltArr?: Uint8Array) {
@@ -98,10 +100,8 @@ export async function encrypt_key(bytes: Uint8Array<ArrayBuffer>, key: CryptoKey
 // gets the key for the channel the user is currently on.
 
 export async function getChannelKey(channel_id: string) {
-    const proxyKey = settings.store.storedKeys[channel_id];
-    console.log(proxyKey);
+    const proxyKey = settings.store.storedKeys[channel_id]; // called proxyKey because settings.store returns a gawddam proxy
     const channelKey = base64ToUint8(proxyKey);
-    console.log(channelKey);
     const key = await crypto.subtle.importKey(
         "raw",
         channelKey,
@@ -111,4 +111,8 @@ export async function getChannelKey(channel_id: string) {
     );
     console.log(key);
     return key;
+}
+
+export async function createChecksum(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
+    return (await hash(bytes)).slice(0, CHECKSUM_LEN);
 }

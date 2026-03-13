@@ -12,15 +12,14 @@ import { Logger } from "@utils/Logger";
 import definePlugin from "@utils/types";
 import { Message } from "@vencord/discord-types";
 
-import { decrypt, encrypt, getChannelKey } from "./cryptoFunctions";
+import { CHECKSUM_LEN, createChecksum, decrypt, encrypt, getChannelKey } from "./cryptoFunctions";
 import { EncryptChatBarIcon, EncryptIcon } from "./encryptIcon";
 import { settings } from "./settings";
-import { base64ToUint8, concatArrayBuffers, hash, IV_LEN, stringToUint8, uint8ArraysEqual, uint8ToBase64, uint8ToString } from "./utils";
+import { base64ToUint8, concatArrayBuffers, IV_LEN, stringToUint8, uint8ArraysEqual, uint8ToBase64, uint8ToString } from "./utils";
 
-const regexStartEnd = /START\|([a-zA-Z0-9+/]*?={0,3})\|END/g;
+const regexStartEnd = /START\|([a-zA-Z0-9+/]*?={0,3})\|END/g; // this is the regex that detects an encrypted message
 
 const MESSGE_TYPE_LEN = 1;
-const CHECKSUM_LEN = 8; // Ought to be enuf
 
 const HEAD_LEN = MESSGE_TYPE_LEN;
 
@@ -40,10 +39,6 @@ enum MessageType {
 
 
 const LOGGER = new Logger("EncryptedChat", "#ff9900");
-
-async function createChecksum(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuffer>> {
-    return (await hash(bytes)).slice(0, CHECKSUM_LEN);
-}
 
 async function messageEncrypt(inText: string, channel_id: string): Promise<string> {
     const textBytes = stringToUint8(inText);

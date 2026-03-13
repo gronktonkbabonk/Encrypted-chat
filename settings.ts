@@ -18,12 +18,6 @@ export const settings = definePluginSettings({
         hidden: true,
         default: {}
     },
-    masterPassSet: { // for later
-        type: OptionType.BOOLEAN,
-        description: "",
-        default: false,
-        hidden: true
-    },
     showToggleAlerts: {
         type: OptionType.BOOLEAN,
         description: "Show an alert when you shift-click on the chat icon to quickly enable/disable message encryption",
