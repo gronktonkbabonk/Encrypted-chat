@@ -5,26 +5,23 @@
  */
 
 import { ChatBarButton, ChatBarButtonFactory } from "@api/ChatButtons";
-import { Button } from "@components/Button";
 import { Divider } from "@components/Divider";
 import { FormSwitch } from "@components/FormSwitch";
-import { Heading } from "@components/Heading";
 import { Margins } from "@components/margins";
 import { Paragraph } from "@components/Paragraph";
-import { classNameFactory } from "@utils/css";
-import { getCurrentChannel } from "@utils/discord";
-import { ModalCloseButton, ModalContent, ModalHeader, ModalProps, ModalRoot, openModal } from "@utils/modal";
+import { openModal } from "@utils/modal";
 import { IconComponent } from "@utils/types";
 import { Alerts } from "@webpack/common";
 import { MouseEvent } from "react";
 
 import { encryptedStore } from "./encryptedStore";
+import { EncryptIconModal } from "./modals";
 import { settings } from "./settings";
-
-export const cl = classNameFactory("enc-");
+import { cl } from "./utils";
 
 export const EncryptIcon: IconComponent = ({ height = 30, width = 20, className }) => {
     return (
+        // BIGASS SVG we need another
         <svg
             viewBox="0 96 960 960"
             height={height}
@@ -36,7 +33,8 @@ export const EncryptIcon: IconComponent = ({ height = 30, width = 20, className 
     );
 };
 
-function EncryptMessagesToggle() {
+// this returns the switch in the modal that enables or disables encryption
+export function EncryptMessagesToggle() {
     const value = settings.use(["enableEncryption"]).enableEncryption;
 
     return (
@@ -55,28 +53,23 @@ function startKeyExchange(e: MouseEvent) {
 
 }
 
-export function EncryptModal({ rootProps }: { rootProps: ModalProps; }) {
-    const KeyExchangePossible = getCurrentChannel()?.isDM();
-    return (
-        <ModalRoot {...rootProps}>
-            <ModalHeader className={cl("modal-header")}>
-                <Heading tag="h1" className={cl("modal-title")}>
-                    Encrypted Chat
-                </Heading>
-                <ModalCloseButton onClick={rootProps.onClose} />
-            </ModalHeader>
-
-            <ModalContent className={cl("modal-content")}>
-                <Divider className={Margins.bottom16} />
-                <EncryptMessagesToggle />
-                <Divider className={Margins.bottom16} />
-                <Button className={cl("modal-button")} disabled={!KeyExchangePossible} onClick={startKeyExchange}>
-                    Start Key Exchange
-                </Button>
-            </ModalContent>
-
-        </ModalRoot>
-    );
+// this is just so we don't have repetetive code
+function encryptionToggleAlert(enabled: boolean) {
+    const enabledMessage = "The message encryption is now enabled. Anyone without the plugin or the password won't be able to read your messages anymore.";
+    const disabledMessage = "The message encryption is now disabled (Mind that decryption stays unaffected). Your messages will now be sent in plain text. This also counts for messages that have been sent in an encrypted fashion but are edited. So watch out what you write 👀";
+    const message = (enabled) ? enabledMessage : disabledMessage;
+    Alerts.show({
+        title: `Message Encryption ${(enabled) ? "Enabled" : "Disabled"}!`,
+        body: <>
+            <Divider className={Margins.bottom16} />
+            <Paragraph>
+                {message}
+            </Paragraph>
+        </>,
+        confirmText: "Got it",
+        cancelText: "Don't show again",
+        onCancel: () => settings.store.showToggleAlerts = false
+    });
 }
 
 export const EncryptChatBarIcon: ChatBarButtonFactory = ({ isMainChat }) => {
@@ -84,55 +77,27 @@ export const EncryptChatBarIcon: ChatBarButtonFactory = ({ isMainChat }) => {
 
     const { enableEncryption } = settings.use(["enableEncryption"]);
 
+    // this toggles on and off encryption
     const toggle = () => {
         const newState = !enableEncryption;
         settings.store.enableEncryption = newState;
         if (!settings.store.showToggleAlerts) return;
-        if (newState) {
-            Alerts.show({
-                title: "Message Encryption enabled!",
-                body: <>
-                    <Divider className={Margins.bottom16} />
-                    <Paragraph>
-                        The message encryption is now enabled. Anyone without the plugin or the password won't be able to read your messages anymore.
-                    </Paragraph>
-                </>,
-                confirmText: "Got it",
-                cancelText: "Don't show again",
-                onCancel: () => settings.store.showToggleAlerts = false
-            });
-        }
-        else {
-            Alerts.show({
-                title: "Message Encryption disabled!",
-                body: <>
-                    <Divider className={Margins.bottom16} />
-                    <Paragraph>
-                        The message encryption is now disabled (Mind that decryption stays unaffected). Your messages will now be sent in plain text. This also counts for messages that have been sent in an encrypted fashion but are edited. So watch out what you write 👀
-                    </Paragraph>
-                </>,
-                confirmText: "Got it",
-                cancelText: "Don't show again",
-                onCancel: () => settings.store.showToggleAlerts = false
-            });
-        }
+        encryptionToggleAlert(newState);
     };
 
+    // this is the chatbar button itself
     const button = (
         <ChatBarButton
-            tooltip="Toggle encryption"
+            tooltip="Open Encryption Menu or Shift Click to Toggle Encryption"
             onClick={e => {
+                if (e.shiftKey) return toggle();
+                // if you shift click it it just toggles without opening the modal
                 if (!encryptedStore.isInit()) {
                     encryptedStore.user_prompt_store();
                     return;
                 }
-
-                if (e.shiftKey) {
-                    toggle();
-                    return;
-                }
                 openModal(props => (
-                    <EncryptModal rootProps={props} />
+                    <EncryptIconModal rootProps={props} />
                 ));
             }}
         >
